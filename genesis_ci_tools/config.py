@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import os
+import json
 import base64 as base64_lib
 import typing as tp
 import uuid as sys_uuid
@@ -25,6 +26,7 @@ import click
 from gcl_sdk.clients.http import base as http_client
 
 from genesis_ci_tools import logger
+from genesis_ci_tools import constants as c
 
 
 def list_config(
@@ -46,6 +48,7 @@ def add_config_from_env(
     project_id: sys_uuid.UUID,
     env_prefix: str,
     env_path: str,
+    env_format: c.ENV_FILE_FORMAT,
     cfg_prefix: str,
     base64: bool,
     node: sys_uuid.UUID,
@@ -64,7 +67,13 @@ def add_config_from_env(
             envs[key] = value
 
     if envs:
-        content = "\n".join([f"{k}={v}" for k, v in envs.items()])
+        if env_format == "env":
+            content = "\n".join([f"{k}={v}" for k, v in envs.items()])
+        elif env_format == "json":
+            content = json.dumps(envs, indent=2)
+        else:
+            raise ValueError(f"Unknown env format {env_format}")
+
         client.create(
             "/v1/config/configs/",
             data={
