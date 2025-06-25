@@ -25,6 +25,7 @@ from gcl_sdk.clients.http import base as http_client
 
 from genesis_ci_tools import config as config_lib
 from genesis_ci_tools import node as node_lib
+from genesis_ci_tools import constants as c
 
 
 class CmdContext(tp.NamedTuple):
@@ -453,6 +454,13 @@ def list_config_cmd(
     help="Path to the env file will be saved on the node",
 )
 @click.option(
+    "--env-format",
+    default="env",
+    type=click.Choice([s for s in tp.get_args(c.ENV_FILE_FORMAT)]),
+    show_default=True,
+    help="Format of the env file",
+)
+@click.option(
     "--cfg-prefix",
     default="GCT_CFG_",
     help="Prefix used to filter environment variables for configs",
@@ -470,6 +478,7 @@ def add_config_from_env_cmd(
     project_id: sys_uuid.UUID,
     env_prefix: str,
     env_path: str,
+    env_format: c.ENV_FILE_FORMAT,
     cfg_prefix: str,
     base64: bool,
     node: sys_uuid.UUID,
@@ -480,6 +489,7 @@ def add_config_from_env_cmd(
         project_id,
         env_prefix,
         env_path,
+        env_format,
         cfg_prefix,
         base64,
         node,

@@ -82,6 +82,7 @@ FOO=bar
 ```
 
 Where `/var/lib/genesis/app.env` is default path.
+There are two supported formats for the env file: `env` and `json`, use option `--env-format` to set the format.
 
 In the `plain text` we need to specify at least two variables for path and content.
 
