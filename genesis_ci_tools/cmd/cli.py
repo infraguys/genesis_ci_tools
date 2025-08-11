@@ -106,16 +106,29 @@ def _print_config(config: dict) -> None:
     default=None,
     help="Password for the client user",
 )
+@click.option(
+    "-P",
+    "--project-id",
+    default=None,
+    type=click.UUID,
+    help="Project ID for the client user",
+)
 @click.pass_context
 def main(
     ctx: click.Context,
     endpoint: str,
     user: str | None,
     password: str | None,
+    project_id: sys_uuid.UUID | None,
 ) -> None:
     # Prepare a client
+    if project_id is not None:
+        scope = http_client.CoreIamAuthenticator.project_scope(project_id)
+    else:
+        scope = None
+
     auth = http_client.CoreIamAuthenticator(
-        base_url=endpoint, username=user, password=password
+        base_url=endpoint, username=user, password=password, scope=scope
     )
     client = http_client.CollectionBaseClient(
         base_url=endpoint,
