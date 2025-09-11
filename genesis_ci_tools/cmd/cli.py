@@ -16,16 +16,20 @@
 
 from __future__ import annotations
 
+import os
 import typing as tp
 import uuid as sys_uuid
 
 import click
 import prettytable
+import yaml
 from gcl_sdk.clients.http import base as http_client
 
 from genesis_ci_tools import config as config_lib
 from genesis_ci_tools import node as node_lib
+from genesis_ci_tools import elements as elements_lib
 from genesis_ci_tools import constants as c
+from genesis_ci_tools import logger
 
 
 class CmdContext(tp.NamedTuple):
@@ -534,3 +538,116 @@ def delete_config_cmd(
 ) -> None:
     client: http_client.CollectionBaseClient = ctx.obj.client
     config_lib.delete_config(client, uuid, node)
+
+
+# Elements group
+@main.group("elements", help="Manage elements in the Genesis installation")
+def elements_group():
+    pass
+
+
+@elements_group.command(
+    "install", help="Install element from a manifest (YAML file)"
+)
+@click.argument(
+    "path", type=click.Path(exists=True, dir_okay=False, readable=True)
+)
+@click.pass_context
+def install_element_cmd(ctx: click.Context, path: str) -> None:
+    """Install element from a YAML file"""
+    client: http_client.CollectionBaseClient = ctx.obj.client
+    log = logger.ClickLogger()
+
+    with open(path, "r", encoding="utf-8") as f:
+        manifest = yaml.safe_load(f)
+
+    manifest = elements_lib.add_manifest(client, manifest)
+    elements_lib.install_manifest(client, manifest["uuid"])
+    log.important(f"Element {manifest['name']} installed successfully")
+
+
+@elements_group.command(
+    "uninstall", help="Uninstall element by UUID, path or name"
+)
+@click.argument("path_uuid_name", type=str)
+@click.pass_context
+def uninstall_element_cmd(ctx: click.Context, path_uuid_name: str) -> None:
+    """Uninstall element by UUID, path or name"""
+    client: http_client.CollectionBaseClient = ctx.obj.client
+    log = logger.ClickLogger()
+
+    def _uninstall(uuid: sys_uuid.UUID) -> None:
+        elements_lib.uninstall_manifest(client, uuid)
+        elements_lib.delete_manifest(client, uuid)
+        log.important(f"Element {uuid} uninstalled successfully")
+
+    # UUID
+    try:
+        uuid = sys_uuid.UUID(path_uuid_name)
+        _uninstall(uuid)
+        return
+    except ValueError:
+        pass
+
+    # Name
+    name = path_uuid_name
+    manifests = elements_lib.list_manifest(client, name=name)
+    if len(manifests) == 1:
+        uuid = manifests[0]["uuid"]
+        _uninstall(uuid)
+        return
+    if len(manifests) > 1:
+        raise click.ClickException(f"Multiple elements found with name {name}")
+
+    # Path
+    if os.path.exists(path_uuid_name):
+        with open(path_uuid_name, "r") as f:
+            manifest = yaml.safe_load(f)
+        if "uuid" in manifest:
+            filters = {"uuid": manifest["uuid"]}
+        elif "name" in manifest:
+            filters = {"name": manifest["name"]}
+        else:
+            raise click.ClickException("Manifest must have uuid or name")
+
+        manifests = elements_lib.list_manifest(client, **filters)
+        if len(manifests) == 1:
+            uuid = manifests[0]["uuid"]
+            _uninstall(uuid)
+            return
+        if len(manifests) > 1:
+            raise click.ClickException(
+                f"Multiple elements found with name {name}"
+            )
+        log.warn(f"Element {list(filters.values())[0]} not found")
+        return
+
+    log.warn(f"Element {path_uuid_name} not found")
+
+
+@elements_group.command("list", help="List elements")
+@click.pass_context
+def list_element_cmd(ctx: click.Context) -> None:
+    """List elements"""
+    client: http_client.CollectionBaseClient = ctx.obj.client
+    table = prettytable.PrettyTable()
+    table.field_names = [
+        "UUID",
+        "Name",
+        "Description",
+        "Version",
+        "Status",
+    ]
+
+    elements = elements_lib.list_elements(client)
+    for element in elements:
+        table.add_row(
+            [
+                element["uuid"],
+                element["name"],
+                element["description"],
+                element["version"],
+                element["status"],
+            ]
+        )
+    click.echo(table)
