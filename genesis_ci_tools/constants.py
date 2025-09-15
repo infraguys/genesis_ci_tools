@@ -17,3 +17,5 @@
 import typing as tp
 
 ENV_FILE_FORMAT = tp.Literal["json", "env"]
+MANIFEST_COLLECTION = "/v1/em/manifests/"
+ELEMENT_COLLECTION = "/v1/em/elements/"
