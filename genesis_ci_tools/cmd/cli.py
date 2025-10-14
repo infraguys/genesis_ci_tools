@@ -92,9 +92,16 @@ def _print_config(config: dict) -> None:
 
 @click.group(invoke_without_command=True)
 @click.option(
+    "--config",
+    default=os.path.expanduser("~/.genesis/genesisctl.yaml"),
+    show_default=True,
+    type=click.Path(exists=False, dir_okay=False),
+    help="Path to YAML config file",
+)
+@click.option(
     "-e",
     "--endpoint",
-    default="http://127.0.0.1:11010",
+    default="http://localhost:11010",
     show_default=True,
     help="Genesis API endpoint",
 )
@@ -120,22 +127,75 @@ def _print_config(config: dict) -> None:
 @click.pass_context
 def main(
     ctx: click.Context,
+    config: str,
     endpoint: str,
     user: str | None,
     password: str | None,
     project_id: sys_uuid.UUID | None,
 ) -> None:
+    # Load configuration from file (if exists)
+    cfg_path = os.path.expanduser(config) if config else None
+    cfg: dict = {}
+    if cfg_path and os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                loaded = yaml.safe_load(f) or {}
+        except OSError as e:
+            raise click.ClickException(
+                f"Could not read config file '{cfg_path}': {e}"
+            )
+        except yaml.YAMLError as e:
+            raise click.ClickException(
+                f"Error parsing YAML file '{cfg_path}': {e}"
+            )
+
+        if not isinstance(loaded, dict):
+            raise click.ClickException(
+                "Config file must contain a YAML mapping"
+            )
+        cfg = loaded
+
+    # Determine parameter sources to respect CLI priority over config
+    ps = ctx.get_parameter_source
+
+    def _get_final_value(param_name: str, cli_value: tp.Any) -> tp.Any:
+        if ps(param_name) == click.core.ParameterSource.COMMANDLINE:
+            return cli_value
+        return cfg.get(param_name, cli_value)
+
+    final_endpoint = _get_final_value("endpoint", endpoint)
+    final_user = _get_final_value("user", user)
+    final_password = _get_final_value("password", password)
+
+    # Project ID
+    final_project_id = None
+    if ps("project_id") == click.core.ParameterSource.COMMANDLINE:
+        final_project_id = project_id
+    else:
+        if cfg_project := cfg.get("project_id"):
+            try:
+                final_project_id = sys_uuid.UUID(str(cfg_project))
+            except (ValueError, AttributeError) as exc:
+                raise click.ClickException(
+                    f"Invalid project_id in config: {cfg_project}"
+                ) from exc
+
     # Prepare a client
-    if project_id is not None:
-        scope = http_client.CoreIamAuthenticator.project_scope(project_id)
+    if final_project_id is not None:
+        scope = http_client.CoreIamAuthenticator.project_scope(
+            final_project_id
+        )
     else:
         scope = None
 
     auth = http_client.CoreIamAuthenticator(
-        base_url=endpoint, username=user, password=password, scope=scope
+        base_url=final_endpoint,
+        username=final_user,
+        password=final_password,
+        scope=scope,
     )
     client = http_client.CollectionBaseClient(
-        base_url=endpoint,
+        base_url=final_endpoint,
         auth=auth,
     )
     ctx.obj = CmdContext(client)
