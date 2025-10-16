@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import os
+import time
 import typing as tp
 import uuid as sys_uuid
 
@@ -28,6 +29,7 @@ from gcl_sdk.clients.http import base as http_client
 from genesis_ci_tools import config as config_lib
 from genesis_ci_tools import node as node_lib
 from genesis_ci_tools import elements as elements_lib
+from genesis_ci_tools import repo as repo_lib
 from genesis_ci_tools import constants as c
 from genesis_ci_tools import logger
 
@@ -609,17 +611,70 @@ def elements_group():
 @elements_group.command(
     "install", help="Install element from a manifest (YAML file)"
 )
-@click.argument(
-    "path", type=click.Path(exists=True, dir_okay=False, readable=True)
+@click.option(
+    "-r",
+    "--repository",
+    default="http://10.20.0.1:8080/genesis-elements/",
+    show_default=True,
+    help="Repository endpoint",
 )
+@click.argument("path_or_name")
 @click.pass_context
-def install_element_cmd(ctx: click.Context, path: str) -> None:
+def install_element_cmd(
+    ctx: click.Context, repository: str, path_or_name: str
+) -> None:
     """Install element from a YAML file"""
     client: http_client.CollectionBaseClient = ctx.obj.client
     log = logger.ClickLogger()
 
-    with open(path, "r", encoding="utf-8") as f:
-        manifest = yaml.safe_load(f)
+    if os.path.exists(path_or_name):
+        with open(path_or_name, "r", encoding="utf-8") as f:
+            manifest = yaml.safe_load(f)
+    else:
+        manifest = repo_lib.download_manifest(repository, path_or_name)
+
+    requirements: dict = manifest.get("requirements", {})
+
+    # Install element if no requirements
+    if not requirements:
+        manifest = elements_lib.add_manifest(client, manifest)
+        elements_lib.install_manifest(client, manifest["uuid"])
+        log.important(f"Element {manifest['name']} installed successfully")
+        return
+
+    # Resolve dependencies
+    installed_elements = {
+        e["name"] for e in elements_lib.list_elements(client)
+    }
+    required_elements = set(requirements.keys()) - installed_elements
+
+    log.info(
+        "The following elements will be installed: "
+        f"{required_elements.union({manifest['name']})}"
+    )
+
+    while required_elements:
+        # TODO(akremenetsky): Use queue to resolve dependencies
+        requirement = required_elements.pop()
+        req_manifest = repo_lib.download_manifest(repository, requirement)
+
+        # Determine requirements for the element
+        requirements = set(req_manifest.get("requirements", {}).keys())
+        requirements = requirements - installed_elements
+        required_elements.update(requirements)
+
+        # NOTE(akremenetsky): We should install the element since there are
+        # unresolved dependencies but for the simplicity we will install it here
+        req_manifest = elements_lib.add_manifest(client, req_manifest)
+        elements_lib.install_manifest(client, req_manifest["uuid"])
+        log.important(f"Element {req_manifest['name']} installed successfully")
+
+        installed_elements.add(req_manifest["name"])
+
+        # TODO(akremenetsky): The installation is stuck for some reason
+        # so we need to wait a bit. Solve the issue in GC and remove this
+        # sleep.
+        time.sleep(3)
 
     manifest = elements_lib.add_manifest(client, manifest)
     elements_lib.install_manifest(client, manifest["uuid"])
