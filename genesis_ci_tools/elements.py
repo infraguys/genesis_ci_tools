@@ -32,6 +32,31 @@ def list_manifest(
     return client.filter(c.MANIFEST_COLLECTION, **filters)
 
 
+def get_manifest_uuid(
+    client: http_client.CollectionBaseClient,
+    manifest: dict[str, tp.Any],
+) -> sys_uuid.UUID:
+    # Try to get manifest by name
+    if "uuid" not in manifest:
+        if "name" not in manifest:
+            raise click.ClickException("Manifest must have a name")
+        manifests = list_manifest(client, name=manifest["name"])
+
+        if not manifests:
+            raise click.ClickException(
+                f"Manifest '{manifest['name']}' not found"
+            )
+
+        if len(manifests) > 1:
+            raise click.ClickException(
+                f"Multiple manifests found for '{manifest['name']}'"
+            )
+
+        return sys_uuid.UUID(manifests[0]["uuid"])
+
+    return sys_uuid.UUID(manifest["uuid"])
+
+
 def add_manifest(
     client: http_client.CollectionBaseClient,
     manifest: dict[str, tp.Any],
@@ -46,6 +71,27 @@ def add_manifest(
         manifest_resp = client.create(c.MANIFEST_COLLECTION, data=manifest)
     except bazooka_exc.ConflictError:
         raise click.ClickException(f"Manifest with UUID {uuid} already exists")
+
+    return manifest_resp
+
+
+def update_manifest(
+    client: http_client.CollectionBaseClient,
+    manifest: dict[str, tp.Any],
+) -> dict[str, tp.Any]:
+    uuid = get_manifest_uuid(client, manifest)
+
+    # Remove fields that are not allowed to be updated
+    data = manifest.copy()
+    data.pop("uuid", None)
+    data.pop("version", None)
+    data.pop("name", None)
+    data.pop("schema_version", None)
+
+    try:
+        manifest_resp = client.update(c.MANIFEST_COLLECTION, uuid=uuid, **data)
+    except bazooka_exc.NotFoundError:
+        raise click.ClickException(f"Manifest with UUID {uuid} not found")
 
     return manifest_resp
 
@@ -71,6 +117,20 @@ def install_manifest(
     except bazooka_exc.ConflictError:
         raise click.ClickException(
             f"Manifest with UUID {uuid} already installed"
+        )
+
+
+def apply_manifest(
+    client: http_client.CollectionBaseClient,
+    uuid: sys_uuid.UUID,
+) -> None:
+    try:
+        client.do_action(
+            c.MANIFEST_COLLECTION, uuid=uuid, name="upgrade", invoke=True
+        )
+    except bazooka_exc.NotFoundError:
+        raise click.ClickException(
+            f"Manifest with UUID {uuid} is not installed"
         )
 
 

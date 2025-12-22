@@ -681,6 +681,43 @@ def install_element_cmd(
     log.important(f"Element {manifest['name']} installed successfully")
 
 
+@elements_group.command("update", help="Update element from a YAML file")
+@click.option(
+    "-r",
+    "--repository",
+    default="http://10.20.0.1:8080/genesis-elements/",
+    show_default=True,
+    help="Repository endpoint",
+)
+@click.argument("path_or_name")
+@click.pass_context
+def update_element_cmd(
+    ctx: click.Context, repository: str, path_or_name: str
+) -> None:
+    """Update element from a YAML file"""
+    client: http_client.CollectionBaseClient = ctx.obj.client
+    log = logger.ClickLogger()
+
+    if os.path.exists(path_or_name):
+        with open(path_or_name, "r", encoding="utf-8") as f:
+            manifest = yaml.safe_load(f)
+    else:
+        manifest = repo_lib.download_manifest(repository, path_or_name)
+
+    # TODO(akremenetsky): Resolve new dependencies
+
+    manifest_uuid = elements_lib.get_manifest_uuid(client, manifest)
+
+    manifests = elements_lib.list_manifest(client, name=manifest["name"])
+    if manifests:
+        elements_lib.delete_manifest(client, manifest_uuid)
+
+    elements_lib.add_manifest(client, manifest)
+    elements_lib.apply_manifest(client, manifest_uuid)
+
+    log.important(f"Element {manifest['name']} updated successfully")
+
+
 @elements_group.command(
     "uninstall", help="Uninstall element by UUID, path or name"
 )
