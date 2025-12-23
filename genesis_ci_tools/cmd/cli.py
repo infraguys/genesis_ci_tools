@@ -608,23 +608,17 @@ def elements_group():
     pass
 
 
-@elements_group.command(
-    "install", help="Install element from a manifest (YAML file)"
-)
-@click.option(
-    "-r",
-    "--repository",
-    default="http://10.20.0.1:8080/genesis-elements/",
-    show_default=True,
-    help="Repository endpoint",
-)
-@click.argument("path_or_name")
-@click.pass_context
-def install_element_cmd(
-    ctx: click.Context, repository: str, path_or_name: str
-) -> None:
-    """Install element from a YAML file"""
-    client: http_client.CollectionBaseClient = ctx.obj.client
+def apply_element(
+    client: http_client.CollectionBaseClient,
+    repository: str,
+    path_or_name: str,
+    install_only: bool = False,
+) -> dict[str, tp.Any]:
+    """Install or update element from a YAML file or repository.
+
+    The command will install the element if it's not installed or update it
+    if it's installed.
+    """
     log = logger.ClickLogger()
 
     if os.path.exists(path_or_name):
@@ -635,12 +629,24 @@ def install_element_cmd(
 
     requirements: dict = manifest.get("requirements", {})
 
+    installed = bool(elements_lib.list_elements(client, name=manifest["name"]))
+
+    if installed and install_only:
+        raise click.ClickException(
+            f"Element {manifest['name']} is already installed"
+        )
+
+    apply_func = (
+        elements_lib.install_manifest
+        if install_only
+        else elements_lib.apply_manifest
+    )
+
     # Install element if no requirements
     if not requirements:
         manifest = elements_lib.add_manifest(client, manifest)
-        elements_lib.install_manifest(client, manifest["uuid"])
-        log.important(f"Element {manifest['name']} installed successfully")
-        return
+        apply_func(client, manifest["uuid"])
+        return manifest
 
     # Resolve dependencies
     installed_elements = {
@@ -677,7 +683,30 @@ def install_element_cmd(
         time.sleep(3)
 
     manifest = elements_lib.add_manifest(client, manifest)
-    elements_lib.install_manifest(client, manifest["uuid"])
+    apply_func(client, manifest["uuid"])
+    return manifest
+
+
+@elements_group.command(
+    "install", help="Install element from a manifest (YAML file)"
+)
+@click.option(
+    "-r",
+    "--repository",
+    default="http://10.20.0.1:8080/genesis-elements/",
+    show_default=True,
+    help="Repository endpoint",
+)
+@click.argument("path_or_name")
+@click.pass_context
+def install_element_cmd(
+    ctx: click.Context, repository: str, path_or_name: str
+) -> None:
+    """Install element from a YAML file"""
+    log = logger.ClickLogger()
+    manifest = apply_element(
+        ctx.obj.client, repository, path_or_name, install_only=True
+    )
     log.important(f"Element {manifest['name']} installed successfully")
 
 
@@ -695,26 +724,8 @@ def update_element_cmd(
     ctx: click.Context, repository: str, path_or_name: str
 ) -> None:
     """Update element from a YAML file"""
-    client: http_client.CollectionBaseClient = ctx.obj.client
     log = logger.ClickLogger()
-
-    if os.path.exists(path_or_name):
-        with open(path_or_name, "r", encoding="utf-8") as f:
-            manifest = yaml.safe_load(f)
-    else:
-        manifest = repo_lib.download_manifest(repository, path_or_name)
-
-    # TODO(akremenetsky): Resolve new dependencies
-
-    # manifest_uuid = elements_lib.get_manifest_uuid(client, manifest)
-
-    # manifests = elements_lib.list_manifest(client, name=manifest["name"])
-    # if manifests:
-    #     elements_lib.delete_manifest(client, manifest_uuid)
-
-    manifest = elements_lib.add_manifest(client, manifest)
-    elements_lib.apply_manifest(client, sys_uuid.UUID(manifest["uuid"]))
-
+    manifest = apply_element(ctx.obj.client, repository, path_or_name)
     log.important(f"Element {manifest['name']} updated successfully")
 
 
@@ -802,4 +813,74 @@ def list_element_cmd(ctx: click.Context) -> None:
                 element["status"],
             ]
         )
+    click.echo(table)
+
+
+@elements_group.command("show", help="Show element general information")
+@click.argument("name")
+@click.pass_context
+def show_element_cmd(ctx: click.Context, name: str) -> None:
+    """Show element general information"""
+    client: http_client.CollectionBaseClient = ctx.obj.client
+    log = logger.ClickLogger()
+
+    element = elements_lib.list_elements(client, name=name)
+    if not element:
+        raise click.ClickException(f"Element {name} not found")
+
+    if len(element) > 1:
+        raise click.ClickException(f"Multiple elements found with name {name}")
+
+    element = element[0]
+
+    table = prettytable.PrettyTable()
+    table.field_names = [
+        "UUID",
+        "Name",
+        "Description",
+        "Version",
+        "Status",
+    ]
+
+    table.add_row(
+        [
+            element["uuid"],
+            element["name"],
+            element["description"],
+            element["version"],
+            element["status"],
+        ]
+    )
+
+    click.echo(f"Element {name}:")
+    click.echo(table)
+
+    resources = elements_lib.list_resources(
+        client, sys_uuid.UUID(element["uuid"])
+    )
+    table = prettytable.PrettyTable()
+    table.field_names = [
+        "UUID",
+        "Name",
+        "Kind",
+        "Full hash",
+        "Status",
+        "Created at",
+        "Updated at",
+    ]
+
+    for resource in resources:
+        table.add_row(
+            [
+                resource["uuid"],
+                resource["name"],
+                resource["kind"],
+                resource["full_hash"],
+                resource["status"],
+                resource["created_at"],
+                resource["updated_at"],
+            ]
+        )
+
+    click.echo("Resources:")
     click.echo(table)
