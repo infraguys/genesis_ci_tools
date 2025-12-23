@@ -706,14 +706,14 @@ def update_element_cmd(
 
     # TODO(akremenetsky): Resolve new dependencies
 
-    manifest_uuid = elements_lib.get_manifest_uuid(client, manifest)
+    # manifest_uuid = elements_lib.get_manifest_uuid(client, manifest)
 
-    manifests = elements_lib.list_manifest(client, name=manifest["name"])
-    if manifests:
-        elements_lib.delete_manifest(client, manifest_uuid)
+    # manifests = elements_lib.list_manifest(client, name=manifest["name"])
+    # if manifests:
+    #     elements_lib.delete_manifest(client, manifest_uuid)
 
-    elements_lib.add_manifest(client, manifest)
-    elements_lib.apply_manifest(client, manifest_uuid)
+    manifest = elements_lib.add_manifest(client, manifest)
+    elements_lib.apply_manifest(client, sys_uuid.UUID(manifest["uuid"]))
 
     log.important(f"Element {manifest['name']} updated successfully")
 
