@@ -150,3 +150,12 @@ def list_elements(
     client: http_client.CollectionBaseClient, **filters
 ) -> list[dict[str, tp.Any]]:
     return client.filter(c.ELEMENT_COLLECTION, **filters)
+
+
+def list_resources(
+    client: http_client.CollectionBaseClient,
+    element_uuid: sys_uuid.UUID,
+    **filters,
+) -> list[dict[str, tp.Any]]:
+    collection = f"{c.ELEMENT_COLLECTION}{element_uuid}/resources/"
+    return client.filter(collection, **filters)
