@@ -58,8 +58,8 @@ def _print_node(node: dict) -> None:
             node["name"],
             node["cores"],
             node["ram"],
-            node["root_disk_size"],
-            node["image"],
+            node["disk_spec"]["size"],
+            node["disk_spec"]["image"],
             node["default_network"].get("ipv4", ""),
             node["status"],
         ]
@@ -245,8 +245,8 @@ def list_node_cmd(
                 node["name"],
                 node["cores"],
                 node["ram"],
-                node["root_disk_size"],
-                node["image"],
+                node["disk_spec"]["size"],
+                node["disk_spec"]["image"],
                 node["default_network"].get("ipv4", ""),
                 node["status"],
             ]

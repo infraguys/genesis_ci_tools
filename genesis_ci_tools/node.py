@@ -61,10 +61,13 @@ def add_node(
         "project_id": str(project_id),
         "cores": cores,
         "ram": ram,
-        "root_disk_size": root_disk,
-        "image": image,
         "name": name,
         "description": description,
+        "disk_spec": {
+            "kind": "root_disk",
+            "size": root_disk,
+            "image": image,
+        },
     }
 
     # TODO(akremenetsky): Check the image exists
@@ -134,9 +137,13 @@ def add_or_update_node(
     data = {
         "cores": cores,
         "ram": ram,
-        "image": image,
         "name": name,
         "description": description,
+        "disk_spec": {
+            "kind": "root_disk",
+            "size": root_disk,
+            "image": image,
+        },
     }
 
     return client.update("/v1/nodes/", uuid=uuid, **data)
