@@ -43,9 +43,7 @@ def get_manifest_uuid(
         manifests = list_manifest(client, name=manifest["name"])
 
         if not manifests:
-            raise click.ClickException(
-                f"Manifest '{manifest['name']}' not found"
-            )
+            raise click.ClickException(f"Manifest '{manifest['name']}' not found")
 
         if len(manifests) > 1:
             raise click.ClickException(
@@ -111,13 +109,9 @@ def install_manifest(
     uuid: sys_uuid.UUID,
 ) -> None:
     try:
-        client.do_action(
-            c.MANIFEST_COLLECTION, uuid=uuid, name="install", invoke=True
-        )
+        client.do_action(c.MANIFEST_COLLECTION, uuid=uuid, name="install", invoke=True)
     except bazooka_exc.ConflictError:
-        raise click.ClickException(
-            f"Manifest with UUID {uuid} already installed"
-        )
+        raise click.ClickException(f"Manifest with UUID {uuid} already installed")
 
 
 def apply_manifest(
@@ -125,13 +119,9 @@ def apply_manifest(
     uuid: sys_uuid.UUID,
 ) -> None:
     try:
-        client.do_action(
-            c.MANIFEST_COLLECTION, uuid=uuid, name="upgrade", invoke=True
-        )
+        client.do_action(c.MANIFEST_COLLECTION, uuid=uuid, name="upgrade", invoke=True)
     except bazooka_exc.NotFoundError:
-        raise click.ClickException(
-            f"Manifest with UUID {uuid} is not installed"
-        )
+        raise click.ClickException(f"Manifest with UUID {uuid} is not installed")
 
 
 def uninstall_manifest(

@@ -84,7 +84,7 @@ def add_node(
         return node
 
     while node["status"] != "ACTIVE":
-        log.info(f"Waiting for node to be ready. Status: {node["status"]}")
+        log.info(f"Waiting for node to be ready. Status: {node['status']}")
         time.sleep(2)
         node = client.get(NODE_COLLECTION, uuid=uuid)
 

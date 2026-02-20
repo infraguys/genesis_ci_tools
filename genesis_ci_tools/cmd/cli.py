@@ -143,18 +143,12 @@ def main(
             with open(cfg_path, "r", encoding="utf-8") as f:
                 loaded = yaml.safe_load(f) or {}
         except OSError as e:
-            raise click.ClickException(
-                f"Could not read config file '{cfg_path}': {e}"
-            )
+            raise click.ClickException(f"Could not read config file '{cfg_path}': {e}")
         except yaml.YAMLError as e:
-            raise click.ClickException(
-                f"Error parsing YAML file '{cfg_path}': {e}"
-            )
+            raise click.ClickException(f"Error parsing YAML file '{cfg_path}': {e}")
 
         if not isinstance(loaded, dict):
-            raise click.ClickException(
-                "Config file must contain a YAML mapping"
-            )
+            raise click.ClickException("Config file must contain a YAML mapping")
         cfg = loaded
 
     # Determine parameter sources to respect CLI priority over config
@@ -184,9 +178,7 @@ def main(
 
     # Prepare a client
     if final_project_id is not None:
-        scope = http_client.CoreIamAuthenticator.project_scope(
-            final_project_id
-        )
+        scope = http_client.CoreIamAuthenticator.project_scope(final_project_id)
     else:
         scope = None
 
@@ -351,9 +343,7 @@ def add_node_cmd(
     _print_node(node)
 
 
-@nodes_group.command(
-    "add-or-update", help="Add a new node or update an existing one"
-)
+@nodes_group.command("add-or-update", help="Add a new node or update an existing one")
 @click.pass_context
 @click.option(
     "-u",
@@ -575,9 +565,7 @@ def add_config_from_env_cmd(
     )
 
 
-@configs_group.command(
-    "delete", help="Delete configuration from environment variables"
-)
+@configs_group.command("delete", help="Delete configuration from environment variables")
 @click.option(
     "-u",
     "--uuid",
@@ -632,14 +620,10 @@ def apply_element(
     installed = bool(elements_lib.list_elements(client, name=manifest["name"]))
 
     if installed and install_only:
-        raise click.ClickException(
-            f"Element {manifest['name']} is already installed"
-        )
+        raise click.ClickException(f"Element {manifest['name']} is already installed")
 
     apply_func = (
-        elements_lib.install_manifest
-        if install_only
-        else elements_lib.apply_manifest
+        elements_lib.install_manifest if install_only else elements_lib.apply_manifest
     )
 
     # Install element if no requirements
@@ -649,9 +633,7 @@ def apply_element(
         return manifest
 
     # Resolve dependencies
-    installed_elements = {
-        e["name"] for e in elements_lib.list_elements(client)
-    }
+    installed_elements = {e["name"] for e in elements_lib.list_elements(client)}
     required_elements = set(requirements.keys()) - installed_elements
 
     log.info(
@@ -687,9 +669,7 @@ def apply_element(
     return manifest
 
 
-@elements_group.command(
-    "install", help="Install element from a manifest (YAML file)"
-)
+@elements_group.command("install", help="Install element from a manifest (YAML file)")
 @click.option(
     "-r",
     "--repository",
@@ -699,9 +679,7 @@ def apply_element(
 )
 @click.argument("path_or_name")
 @click.pass_context
-def install_element_cmd(
-    ctx: click.Context, repository: str, path_or_name: str
-) -> None:
+def install_element_cmd(ctx: click.Context, repository: str, path_or_name: str) -> None:
     """Install element from a YAML file"""
     log = logger.ClickLogger()
     manifest = apply_element(
@@ -720,18 +698,14 @@ def install_element_cmd(
 )
 @click.argument("path_or_name")
 @click.pass_context
-def update_element_cmd(
-    ctx: click.Context, repository: str, path_or_name: str
-) -> None:
+def update_element_cmd(ctx: click.Context, repository: str, path_or_name: str) -> None:
     """Update element from a YAML file"""
     log = logger.ClickLogger()
     manifest = apply_element(ctx.obj.client, repository, path_or_name)
     log.important(f"Element {manifest['name']} updated successfully")
 
 
-@elements_group.command(
-    "uninstall", help="Uninstall element by UUID, path or name"
-)
+@elements_group.command("uninstall", help="Uninstall element by UUID, path or name")
 @click.argument("path_uuid_name", type=str)
 @click.pass_context
 def uninstall_element_cmd(ctx: click.Context, path_uuid_name: str) -> None:
@@ -779,9 +753,7 @@ def uninstall_element_cmd(ctx: click.Context, path_uuid_name: str) -> None:
             _uninstall(uuid)
             return
         if len(manifests) > 1:
-            raise click.ClickException(
-                f"Multiple elements found with name {name}"
-            )
+            raise click.ClickException(f"Multiple elements found with name {name}")
         log.warn(f"Element {list(filters.values())[0]} not found")
         return
 
@@ -822,7 +794,6 @@ def list_element_cmd(ctx: click.Context) -> None:
 def show_element_cmd(ctx: click.Context, name: str) -> None:
     """Show element general information"""
     client: http_client.CollectionBaseClient = ctx.obj.client
-    log = logger.ClickLogger()
 
     element = elements_lib.list_elements(client, name=name)
     if not element:
@@ -855,9 +826,7 @@ def show_element_cmd(ctx: click.Context, name: str) -> None:
     click.echo(f"Element {name}:")
     click.echo(table)
 
-    resources = elements_lib.list_resources(
-        client, sys_uuid.UUID(element["uuid"])
-    )
+    resources = elements_lib.list_resources(client, sys_uuid.UUID(element["uuid"]))
     table = prettytable.PrettyTable()
     table.field_names = [
         "UUID",
