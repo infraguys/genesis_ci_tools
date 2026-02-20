@@ -37,9 +37,7 @@ def _join_url(*parts: str) -> str:
 
 
 def _http_get(url: str) -> bytes:
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "genesis-ci-tools/1.0"}
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": "genesis-ci-tools/1.0"})
     with urllib.request.urlopen(req, timeout=10) as resp:
         return resp.read()
 
@@ -72,11 +70,9 @@ def download_manifest(
     try:
         # 1) List repository root to ensure element exists
         # (optional but validates repo)
-        root_html = _http_get(repository_url).decode("utf-8", errors="ignore")
+        _http_get(repository_url).decode("utf-8", errors="ignore")
     except Exception as exc:
-        raise ManifestNotFound(
-            f"Failed to access repository: {repository_url}: {exc}"
-        )
+        raise ManifestNotFound(f"Failed to access repository: {repository_url}: {exc}")
 
     # 2) List element directory to get versions
     element_url = _join_url(repository_url, manifest_name)
@@ -99,8 +95,7 @@ def download_manifest(
         latest_dir = max(version_dirs)
     except Exception as exc:
         raise ManifestNotFound(
-            f"Failed to parse versions for '{manifest_name}' at "
-            f"{element_url}: {exc}"
+            f"Failed to parse versions for '{manifest_name}' at {element_url}: {exc}"
         )
 
     # 4) Build manifest URL and download YAML
@@ -111,9 +106,7 @@ def download_manifest(
         data = _http_get(manifest_url)
         manifest = yaml.safe_load(data)
         if not isinstance(manifest, dict):
-            raise ManifestNotFound(
-                f"Manifest at {manifest_url} is not a YAML mapping"
-            )
+            raise ManifestNotFound(f"Manifest at {manifest_url} is not a YAML mapping")
         return manifest
     except ManifestNotFound:
         raise

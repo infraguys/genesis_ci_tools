@@ -131,7 +131,7 @@ def add_config_from_env(
                 "project_id": str(project_id),
             },
         )
-        log.important(f"Saved config to {cfg["path"]}")
+        log.important(f"Saved config to {cfg['path']}")
 
 
 def delete_config(
@@ -145,11 +145,11 @@ def delete_config(
     log = logger.ClickLogger()
 
     if uuid is not None:
-        client.delete(f"/v1/config/configs/", uuid=uuid)
+        client.delete("/v1/config/configs/", uuid=uuid)
         log.important(f"Deleted config {uuid}")
     else:
         configs = client.filter("/v1/config/configs/")
         for config in configs:
             if config["target"]["node"] == str(node):
-                client.delete(f"/v1/config/configs/", uuid=config["uuid"])
+                client.delete("/v1/config/configs/", uuid=config["uuid"])
                 log.important(f"Deleted config {config['uuid']}")
