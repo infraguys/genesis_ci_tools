@@ -540,6 +540,13 @@ def list_config_cmd(
     default=False,
     help="Base64 encode is enabled for configs",
 )
+@click.option(
+    "-u",
+    "--uuid",
+    type=click.UUID,
+    default=None,
+    help="Config UUID",
+)
 @click.argument("node", type=click.UUID)
 @click.pass_context
 def add_config_from_env_cmd(
@@ -550,6 +557,7 @@ def add_config_from_env_cmd(
     env_format: c.ENV_FILE_FORMAT,
     cfg_prefix: str,
     base64: bool,
+    uuid: sys_uuid.UUID | None,
     node: sys_uuid.UUID,
 ) -> None:
     client: http_client.CollectionBaseClient = ctx.obj.client
@@ -562,6 +570,7 @@ def add_config_from_env_cmd(
         cfg_prefix,
         base64,
         node,
+        uuid,
     )
 
 
