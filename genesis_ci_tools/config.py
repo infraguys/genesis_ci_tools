@@ -52,6 +52,7 @@ def add_config_from_env(
     cfg_prefix: str,
     base64: bool,
     node: sys_uuid.UUID,
+    uuid: sys_uuid.UUID | None = None,
 ) -> dict[str, tp.Any]:
     envs = {}
     cfgs = {}
@@ -77,6 +78,7 @@ def add_config_from_env(
         client.create(
             "/v1/config/configs/",
             data={
+                "uuid": str(uuid) if uuid is not None else str(sys_uuid.uuid4()),
                 "name": "envs",
                 "target": {"kind": "node", "node": str(node)},
                 "path": env_path,
